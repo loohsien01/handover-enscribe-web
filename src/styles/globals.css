@@ -1,0 +1,731 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body, #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  }
+
+  /*
+   * Mobile: when a textarea is not focused, disable its internal vertical scroll so
+   * drags scroll the page instead of the field (fat-finger / nested scroll).
+   */
+  textarea {
+    overflow-y: hidden;
+  }
+
+  textarea:focus {
+    overflow-y: auto;
+  }
+}
+
+.dashboard-container {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /*
+   * Mobile / PWA safe-area tokens (viewport-fit=cover in index.html).
+   * Consumed by .mobile-*-shell utilities below and Header.jsx (mobile bar).
+   * env() is 0 on most desktop browsers; non-zero in standalone / notched phones.
+   */
+  --mobile-header-bar: 3.5rem; /* matches Header mobile h-14 */
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  /* Clearance for fixed mobile header + notch (mobile-app-shell padding-top) */
+  --mobile-shell-top: calc(var(--mobile-header-bar) + var(--safe-area-top));
+  /* Home indicator — mobile-app-shell / minimal / full shell padding-bottom */
+  --mobile-shell-bottom: var(--safe-area-bottom);
+  /* Use for h-[…] below mobile header, e.g. NovaChatPage */
+  --mobile-viewport-height: calc(
+    100dvh - var(--mobile-shell-top) - var(--mobile-shell-bottom)
+  );
+  /* Use when app header hidden; prefer min-h-full inside mobile-full-shell instead */
+  --mobile-full-height: calc(
+    100dvh - var(--safe-area-top) - var(--safe-area-bottom)
+  );
+}
+
+@layer utilities {
+  /* --------------------------------------------------------------------------
+   * Mobile / PWA layout shells (see App.jsx for which wrapper each route uses).
+   *
+   * Requires viewport-fit=cover in index.html so env(safe-area-inset-*) works in
+   * installed PWAs (notch + home indicator). In desktop browser tabs those insets
+   * are usually 0 — padding is harmless.
+   *
+   * Do NOT add per-page top/bottom safe-area padding unless you have a special
+   * case (fixed footers, full-bleed modals). Prefer these shells + CSS variables:
+   *   --mobile-shell-top, --mobile-shell-bottom, --mobile-viewport-height,
+   *   --mobile-full-height
+   *
+   * Child pages on mobile should fill flex shells with flex-1 min-h-0 (see mobile-full-shell),
+   * not raw min-h-[100dvh] (ignores parent shell padding and causes overlap / squish).
+   *
+   * Desktop (lg+): shells clear mobile insets; `.mobile-app-shell` / `.mobile-full-shell`
+   * set `padding-left: var(--shell-content-inset)` here (must beat Tailwind load order —
+   * do not rely on `lg:pl-[…]` alone; base shell rules come later in the bundle).
+   * -------------------------------------------------------------------------- */
+
+  /** Optional helper — horizontal safe area only (e.g. edge-to-edge banners). */
+  .mobile-safe-x {
+    padding-left: var(--safe-area-left);
+    padding-right: var(--safe-area-right);
+  }
+
+  /*
+   * mobile-app-shell — DEFAULT authenticated app (Dashboard, Notes, Nova, etc.)
+   *
+   * When: App.jsx wraps <Outlet /> for normal routes (not auth, not /active-recording).
+   * Pairs with: fixed mobile Header (h-14) in Header.jsx; header uses --safe-area-top.
+   *
+   * Padding-top = header bar + notch. Padding-bottom = home indicator.
+   * Full-height pages: use height/min-height var(--mobile-viewport-height), e.g. NovaChatPage.
+   */
+  .mobile-app-shell {
+    box-sizing: border-box;
+    min-height: 100dvh;
+    padding-top: var(--mobile-shell-top);
+    padding-bottom: var(--mobile-shell-bottom);
+    padding-left: var(--safe-area-left);
+    padding-right: var(--safe-area-right);
+  }
+
+  /*
+   * mobile-minimal-shell — AUTH / MARKETING (no app chrome)
+   *
+   * When: shellMinimal routes in App.jsx (login, signup, forgot-password, /marketing, …).
+   * No EnScribe mobile header — only notch + home indicator insets.
+   *
+   * Use for centered forms and marketing; do not expect --mobile-shell-top clearance.
+   */
+  .mobile-minimal-shell {
+    box-sizing: border-box;
+    min-height: 100dvh;
+    padding-top: var(--safe-area-top);
+    padding-bottom: var(--mobile-shell-bottom);
+    padding-left: var(--safe-area-left);
+    padding-right: var(--safe-area-right);
+  }
+
+  /*
+   * mobile-full-shell — ACTIVE RECORDING (full bleed, no app header)
+   *
+   * When: /active-recording full-bleed (recordingShellMobile in App.jsx) — narrow
+   * viewport or desktop phone mockup would be shorter than PHONE_MOCKUP_MIN_HEIGHT.
+   * Header/sidebar is hidden; this shell supplies top/bottom safe areas only.
+   *
+   * ActiveRecordingPage + PhoneDeviceFrame: use flex-1 min-h-0 w-full flex-col
+   * (direct child of this shell) so content fills the padded viewport. Do not use 100dvh
+   * on inner nodes. Touch lock overlay uses --safe-area-* for in-page controls only.
+   *
+   * `.recording-full-bleed` keeps this shell full-viewport even at lg+ (no sidebar inset).
+   */
+  .mobile-full-shell {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    height: 100dvh;
+    padding-top: var(--safe-area-top);
+    padding-bottom: var(--mobile-shell-bottom);
+    padding-left: var(--safe-area-left);
+    padding-right: var(--safe-area-right);
+  }
+
+  /* lg (1024px)+: desktop sidebar layout — clear mobile insets; inset main content. */
+  @media (min-width: 1024px) {
+    .mobile-app-shell,
+    .mobile-full-shell:not(.recording-full-bleed) {
+      min-height: 100vh;
+      height: auto;
+      display: block;
+      padding-top: 0;
+      padding-bottom: 0;
+      padding-right: 0;
+      padding-left: var(--shell-content-inset);
+      transition: padding-left 200ms ease-out;
+    }
+
+    .mobile-full-shell.recording-full-bleed {
+      min-height: 100dvh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      padding-top: var(--safe-area-top);
+      padding-bottom: var(--mobile-shell-bottom);
+      padding-left: var(--safe-area-left);
+      padding-right: var(--safe-area-right);
+    }
+
+    .mobile-minimal-shell {
+      min-height: 100vh;
+      height: auto;
+      display: block;
+      padding: 0;
+    }
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+
+
+/* Footer Styles */
+.app-footer {
+  background-color: #1f2937;
+  color: #ffffff;
+  padding: 2rem 0;
+  margin-top: 2rem;
+  width: 100%;
+  left: 0;
+  right: 0;
+}
+
+.footer-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  width: 100%;
+}
+
+.footer-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.footer-section {
+  margin-bottom: 1.5rem;
+}
+
+.footer-title {
+  font-size: 1.25rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+.footer-text {
+  color: #d1d5db;
+  margin-bottom: 1rem;
+  max-width: 24rem;
+}
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.footer-column {
+  flex: 1;
+  min-width: 12rem;
+  margin-bottom: 1.5rem;
+}
+
+.footer-heading {
+  font-size: 1rem;
+  font-weight: bold;
+  margin-bottom: 0.75rem;
+}
+
+.footer-link-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-link-item {
+  margin-bottom: 0.5rem;
+}
+
+.footer-link {
+  color: #93c5fd; /* Light blue */
+  text-decoration: none;
+}
+
+.footer-link:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.footer-bottom {
+  border-top: 1px solid #374151;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.copyright {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.footer-legal {
+  display: flex;
+  gap: 1rem;
+}
+
+.legal-link {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.legal-link:hover {
+  color: #ffffff;
+}
+
+/* Responsive adjustments */
+@media (min-width: 768px) {
+  .desktop-menu {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .mobile-menu-button {
+    display: none;
+  }
+
+  .footer-content {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .footer-section {
+    flex: 1;
+  }
+
+  .footer-bottom {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .copyright {
+    margin-bottom: 0;
+  }
+}
+
+/* Recording selection checkboxes */
+.recording-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 20px !important;
+  height: 20px !important;
+  border-radius: 50% !important;
+  background-color: white;
+  border: 2px solid #d1d5db;
+  cursor: pointer;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.recording-checkbox:checked {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+  background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+  background-size: 100% 100%;
+  background-position: 50%;
+  background-repeat: no-repeat;
+}
+
+.recording-checkbox:hover {
+  border-color: #9ca3af;
+}
+
+/* Nova chat — GitHub-flavored markdown (Claude / Bedrock completions) */
+.nova-markdown {
+  color: #111827;
+  line-height: 1.625;
+}
+
+.nova-markdown > :first-child {
+  margin-top: 0;
+}
+
+.nova-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.nova-markdown h1 {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 1.5rem 0 0.75rem;
+  line-height: 1.3;
+}
+
+.nova-markdown h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 1.5rem 0 0.625rem;
+  line-height: 1.35;
+}
+
+.nova-markdown h3 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 1.25rem 0 0.5rem;
+  line-height: 1.4;
+}
+
+.nova-markdown h4,
+.nova-markdown h5,
+.nova-markdown h6 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 1rem 0 0.375rem;
+  line-height: 1.45;
+}
+
+.nova-markdown p {
+  margin: 0.5rem 0;
+}
+
+.nova-markdown strong {
+  font-weight: 600;
+  color: #111827;
+}
+
+.nova-markdown em {
+  font-style: italic;
+}
+
+.nova-markdown hr {
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+  margin: 1.25rem 0;
+}
+
+.nova-markdown ul,
+.nova-markdown ol {
+  margin: 0.5rem 0 0.75rem;
+  padding-left: 1.5rem;
+}
+
+.nova-markdown ul {
+  list-style-type: disc;
+}
+
+.nova-markdown ol {
+  list-style-type: decimal;
+}
+
+.nova-markdown li {
+  margin: 0.25rem 0;
+}
+
+.nova-markdown li > ul,
+.nova-markdown li > ol {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+/* GFM task lists — checkbox only (no bullet marker) */
+.nova-markdown li:has(> .nova-task-checkbox),
+.nova-markdown li:has(> input[type='checkbox']) {
+  list-style-type: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.nova-markdown ul:has(> li > .nova-task-checkbox):not(:has(> li:not(:has(> .nova-task-checkbox)))),
+.nova-markdown ul:has(> li > input[type='checkbox']):not(:has(> li:not(:has(> input[type='checkbox'])))) {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.nova-markdown .nova-task-checkbox,
+.nova-markdown li > input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+  border: 1.5px solid #9ca3af;
+  border-radius: 0.2rem;
+  background-color: #fff;
+  cursor: pointer;
+}
+
+.nova-markdown .nova-task-checkbox:checked,
+.nova-markdown li > input[type='checkbox']:checked {
+  background-color: #183278;
+  border-color: #183278;
+  background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+  background-size: 100% 100%;
+  background-position: 50%;
+  background-repeat: no-repeat;
+}
+
+.nova-markdown .nova-task-checkbox:hover,
+.nova-markdown li > input[type='checkbox']:hover {
+  border-color: #6b7280;
+}
+
+.nova-markdown blockquote {
+  margin: 0.75rem 0;
+  padding: 0.5rem 0 0.5rem 1rem;
+  border-left: 3px solid rgb(24 50 120 / 0.35);
+  color: #374151;
+}
+
+.nova-markdown blockquote p {
+  margin: 0.25rem 0;
+}
+
+/* Copyable document excerpts — content + narrow icon rail */
+.nova-excerpt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1.75rem;
+  gap: 0.375rem;
+  align-items: start;
+  margin: 0.75rem 0 1rem;
+  padding: 0.75rem 0.375rem 0.75rem 0.875rem;
+  background: #fafaf9;
+  border-radius: 0.625rem;
+}
+
+.nova-excerpt__content {
+  min-width: 0;
+  color: #1f2937;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.nova-excerpt__content > :first-child {
+  margin-top: 0;
+}
+
+.nova-excerpt__content > :last-child {
+  margin-bottom: 0;
+}
+
+.nova-excerpt--blockquote .nova-excerpt__content blockquote {
+  margin: 0;
+  padding: 0 0 0 0.875rem;
+  border-left: 2px solid rgb(24 50 120 / 0.22);
+  color: inherit;
+}
+
+.nova-excerpt--blockquote .nova-excerpt__content blockquote p {
+  margin: 0.2rem 0;
+}
+
+.nova-excerpt--code .nova-excerpt__content pre {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.nova-excerpt--code .nova-excerpt__content pre code {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  background: transparent;
+  padding: 0;
+}
+
+.nova-excerpt__rail {
+  display: flex;
+  justify-content: center;
+  padding-top: 0.125rem;
+}
+
+.nova-excerpt__copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.nova-excerpt__copy:hover {
+  background: rgb(17 24 39 / 0.08);
+}
+
+.nova-excerpt__copy:focus-visible {
+  outline: 2px solid rgb(24 50 120 / 0.3);
+  outline-offset: 1px;
+}
+
+.nova-excerpt__copy--copied {
+  color: #16a34a;
+}
+
+.nova-excerpt__copy--copied:hover {
+  background: rgb(22 163 74 / 0.1);
+}
+
+.nova-markdown a {
+  color: #183278;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.nova-markdown a:hover {
+  color: #142a66;
+}
+
+.nova-markdown code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875em;
+  background: #f3f4f6;
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.375rem;
+}
+
+.nova-markdown pre {
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+
+.nova-markdown pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.nova-markdown table {
+  width: 100%;
+  margin: 0.75rem 0 1rem;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  display: block;
+  overflow-x: auto;
+}
+
+.nova-markdown th,
+.nova-markdown td {
+  border: 1px solid #e5e7eb;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.nova-markdown th {
+  background: #f9fafb;
+  font-weight: 600;
+  color: #111827;
+}
+
+.nova-markdown tr:nth-child(even) td {
+  background: #fafafa;
+}
+
+@keyframes nova-writing-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes visit-prep-edge-tab-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 3px 10px rgba(24, 50, 120, 0.28),
+      0 0 0 0 rgba(255, 255, 255, 0.35);
+  }
+  50% {
+    box-shadow:
+      0 5px 16px rgba(24, 50, 120, 0.42),
+      0 0 0 5px rgba(255, 255, 255, 0.18);
+  }
+}
+
+.visit-prep-edge-tab-pulse {
+  animation: visit-prep-edge-tab-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .visit-prep-edge-tab-pulse {
+    animation: none;
+  }
+}
+
+.nova-writing-status {
+  animation: nova-writing-pulse 2.2s ease-in-out infinite;
+}
+
+.nova-in-flight-partial {
+  position: relative;
+}
+
+.nova-in-flight-partial::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 0.375rem;
+  background: rgba(255, 255, 255, 0.42);
+  pointer-events: none;
+}
+
+@keyframes nova-stream-cursor-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.nova-stream-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: #9ca3af;
+  animation: nova-stream-cursor-blink 1s step-end infinite;
+}

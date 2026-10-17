@@ -1,0 +1,19 @@
+# Webapp color palette (EnScribe)
+# Primary brand color (used for main surfaces + primary actions):
+#183278
+
+# Supporting / accent blues:
+#4B5D99 #Free plan color
+
+#7C9DF9
+#3166F7
+#2751C4
+
+# Darker hover blue (buttons hover / active emphasis):
+#14285F
+
+# Muted blue-gray (supporting UI tone):
+#3C4C78
+
+# Pale blue-white (supporting UI tone):
+#F9FAFF
